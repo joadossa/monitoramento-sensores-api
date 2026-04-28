@@ -1,9 +1,12 @@
 package com.fiap.mecatronica.monitoramento.controller;
 
 import java.util.List;
-import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,65 +14,72 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fiap.mecatronica.monitoramento.dto.MedicaoResponse;
+import com.fiap.mecatronica.monitoramento.dto.MedicaoDTO;
+import com.fiap.mecatronica.monitoramento.model.Medicao;
 import com.fiap.mecatronica.monitoramento.service.MedicaoService;
 
 @RestController
-@RequestMapping("/medicoes")
-@CrossOrigin
+@RequestMapping("/api/medicoes")
+@CrossOrigin(origins = "*")
 public class MedicaoController {
 
-    private final MedicaoService service;
+    @Autowired
+    private MedicaoService medicaoService;
 
-    public MedicaoController(MedicaoService service) {
-        this.service = service;
-    }
-
-    /**
-     * Registra uma nova medição
-     * POST /medicoes
-     * Body: { "sensorId": 1, "valor": 75.5 }
-     */
-    @PostMapping
-    public MedicaoResponse registrar(@RequestBody Map<String, Object> dados) {
-        Long sensorId = Long.valueOf(dados.get("sensorId").toString());
-        Double valor = Double.valueOf(dados.get("valor").toString());
-        return service.registrarMedicao(sensorId, valor);
-    }
-
-    /**
-     * Lista todas as medições com status calculado
-     * GET /medicoes
-     */
     @GetMapping
-    public List<MedicaoResponse> listar() {
-        return service.listarTodas();
+    public ResponseEntity<List<MedicaoDTO>> listarTodas() {
+        List<MedicaoDTO> medicoes = medicaoService.listarTodas();
+        return ResponseEntity.ok(medicoes);
     }
 
-    /**
-     * Busca uma medição específica por ID
-     * GET /medicoes/{id}
-     */
     @GetMapping("/{id}")
-    public MedicaoResponse buscar(@PathVariable Long id) {
-        return service.buscarPorId(id);
+    public ResponseEntity<MedicaoDTO> buscarPorId(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(medicaoService.buscarPorId(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
-    /**
-     * Lista medições de um sensor específico
-     * GET /medicoes/sensor/{sensorId}
-     */
-    @GetMapping("/sensor/{sensorId}")
-    public List<MedicaoResponse> listarPorSensor(@PathVariable Long sensorId) {
-        return service.listarPorSensor(sensorId);
+    @GetMapping("/area/{areaId}")
+    public ResponseEntity<List<MedicaoDTO>> listarPorArea(@PathVariable Long areaId) {
+        return ResponseEntity.ok(medicaoService.listarPorArea(areaId));
     }
 
-    /**
-     * Simula uma medição aleatória (útil para testes)
-     * POST /medicoes/simular/{sensorId}
-     */
-    @PostMapping("/simular/{sensorId}")
-    public MedicaoResponse simular(@PathVariable Long sensorId) {
-        return service.simularMedicao(sensorId);
+    @PostMapping("/area/{areaId}")
+    public ResponseEntity<MedicaoDTO> registrarMedicao(
+            @PathVariable Long areaId,
+            @RequestBody Medicao medicao) {
+        try {
+            MedicaoDTO medicaoSalva = medicaoService.registrarMedicao(areaId, medicao);
+            return ResponseEntity.status(HttpStatus.CREATED).body(medicaoSalva);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/simular/{areaId}")
+    public ResponseEntity<MedicaoDTO> simularColetaDados(@PathVariable Long areaId) {
+        try {
+            MedicaoDTO medicao = medicaoService.simularColetaDados(areaId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(medicao);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/simular-todas")
+    public ResponseEntity<List<MedicaoDTO>> simularColetaTodasAreas() {
+        return ResponseEntity.ok(medicaoService.simularColetaTodasAreas());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+        try {
+            medicaoService.deletar(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }
